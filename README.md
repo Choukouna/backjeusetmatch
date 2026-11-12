@@ -1,132 +1,63 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# JeuSetFun backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS 12 REST API for the French Flutter tennis/padel application. This repository owns application rules and Firebase Admin access. The Flutter repository remains unchanged; its feature-by-feature API integration is the next migration stage.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Run locally
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+Requires Node 24 and Java 21+ for the Firestore emulator.
 
 ```bash
-$ npm install
+npm ci
+cp .env.example .env
+npm exec firebase -- emulators:start --config firebase.emulators.json --project demo-jeusetfun --only auth,firestore
+# In another terminal:
+npm run start:dev
 ```
 
-## Compile and run the project
+The API is at `/api/jeusetfun/v1`; Swagger UI at `/api/docs` and OpenAPI JSON at `/api/docs-json` when `ENABLE_SWAGGER=true`. The demo emulators use no production project or credentials. Use the 32-byte existing app key only when connecting to legacy records; changing it breaks old-client chat compatibility. Never commit real environment files or service-account keys.
+
+For a real test/production Firebase project, remove both emulator variables, supply its project ID and Firebase Web API key, and use Application Default Credentials. Cloud Run uses its attached service account; local ADC setup is `gcloud auth application-default login`. The API key identifies Firebase's Identity Toolkit project; it does not replace bearer authentication.
+
+## Verify
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run build
+npm run lint
+npm run typecheck
+npm test
+npm run test:e2e
+npm run test:emulators
 ```
 
-## Run tests
+`test:e2e` checks HTTP validation/authentication with a stubbed Firebase provider. `test:emulators` starts isolated demo Auth/Firestore services and runs transactional/API integration tests. If emulators are already running, use `npm run test:integration`. Integration tests clear the demo emulator database and explicitly reject non-demo/nonlocal configuration. Java 21 must be on PATH. The emulator rules deny client access; Admin SDK bypasses them as in production.
 
-```bash
-# unit tests
-$ npm run test
+## APIs
 
-# e2e tests
-$ npm run test:e2e
+All routes below use `/api/jeusetfun/v1`. Bearer Firebase ID tokens are required except login, signup, reset, communes, and health. Public player DTOs exclude emails, real names, and FCM tokens.
 
-# test coverage
-$ npm run test:cov
-```
+| Domain         | Routes                                                                                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Authentication | `POST /auth/login`, `/auth/signup`, `/auth/complete-profile`, `/auth/password-reset`; `DELETE /auth/account`                                                       |
+| Players        | `GET /players`, `/players/me`, `/players/:id`, `/players/by-pseudo/:pseudo`; `PATCH /players/me`; `POST /players/me/opened`; `PUT/DELETE /players/me/device-token` |
+| Communes       | `GET /communes?q=ren&departmentCode=35`                                                                                                                            |
+| Matches        | `GET/POST /matches`; `PUT /matches/:id/score` for scheduled league matches                                                                                         |
+| Availability   | `GET/POST /slots`; `POST /slots/:id/request`; `PUT /slots/:id/response`; `DELETE /slots/:id`                                                                       |
+| Friendships    | `GET /friendships`; `POST/DELETE /friendships/:playerId`; `PUT /friendships/:playerId/accept`                                                                      |
+| Chat           | `GET /chats`; `POST /chats/direct`; `GET/POST /chats/:id/messages`; `PUT /chats/:id/read`; `DELETE /chats/:id` (P2P)                                               |
+| Live events    | `GET /chats/events`, `/chats/:id/events` with `Accept: text/event-stream` and bearer header                                                                        |
+| Groups         | `GET/POST /groups`; `GET/DELETE /groups/:id`; `PUT /groups/:id/members`; `POST /groups/:id/leave`                                                                  |
+| Tennis leagues | `GET/POST /leagues`; `GET /leagues/:id`, `/rounds`, `/matches`, `/standings`; `POST/DELETE /leagues/:id/enrollment`; `POST /leagues/:id/close`                     |
+| Feedback       | `POST /feedback`                                                                                                                                                   |
+| Health         | `GET /health/live`, `/health/ready`                                                                                                                                |
 
-## Deployment
+Availability accepts an optional `day=YYYY-MM-DD` within today through day +14 (Europe/Paris); otherwise it returns that whole window. League matches accept `roundNumber`; standings accept `upToRoundNumber`. Use Swagger for request schemas. All fixed UI text stays in Flutter's French `Constante`; the API returns machine-readable `{code,statusCode,requestId}` errors. Request IDs also appear in `x-request-id`. Dates are ISO 8601 strings. Most lists return `{items,nextCursor}` with `limit` (1–100) and an opaque `cursor`; cursors belong to their original query. Chat messages sort newest first, calendars by start time, and commune search by normalized name; other lists sort by document ID. Clients must sort presentation rows and continue while `nextCursor` exists, even if compatibility filtering yields an empty page.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Mutations creating matches, slots, messages, groups, leagues, and feedback, plus slot responses, require a client-generated UUID `operationId`. Retain it across network retries. A reused ID with a different payload returns `OPERATION_REUSED`; never switch to a direct Firestore write after an uncertain API result. Operation records currently have no TTL, so deduplication lasts as long as the record exists.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Login accepts `{pseudo,password}` and returns `{customToken}`. Flutter exchanges the custom token with Firebase `signInWithCustomToken`, then sends Firebase **ID tokens**, not custom tokens, to API calls. Signup also returns `profileComplete`; if false, establish the session and call `/auth/complete-profile` with a corrected profile. If signup loses its network response before session receipt, recover through Firebase email/password sign-in and complete the profile. Firebase SDK session persistence, token refresh, password reauthentication, and FCM receipt remain client responsibilities. Password reset always returns an acceptance response rather than a pseudo/email lookup. Account deletion requires authentication within five minutes; historical player references are anonymized.
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+For SSE, use a Flutter client that can attach bearer headers. `invalidate` events identify resources to reload through REST; `heartbeat` maintains the stream. `reconnect` closes the stream with a reason. Obtain a fresh ID token, reconnect with exponential backoff/jitter, and reload authoritative snapshots. Membership removal stops a conversation subscription. Server lifetimes are bounded to four minutes, below Cloud Run's configured five-minute timeout. Firestore listeners work across instances and observe writes from older Flutter versions. There is no durable SSE replay; resynchronization is mandatory.
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Deployment and migration
 
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project, run this and approve the code it prints at [observe.nestjs.com/link](https://observe.nestjs.com/link) - signing up for free if you have no account:
-
-```bash
-$ npx @nestjs/observe link
-```
-
-It installs `@nestjs/observe`, wires it into `AppModule` and `main.ts`, and writes the app key and secret into `.env`, which every `nest start` script (`start`, `start:dev`, `start:debug`) then loads. In production, set `OBSERVE_APP_KEY` and `OBSERVE_APP_SECRET` in the environment instead.
-
-Or do it by hand:
-
-```bash
-$ npm install @nestjs/observe
-```
-
-Then follow the [setup guide](https://docs.nestjs.com/observability/sdk) - it takes a single import and an app key.
-
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+See [migration contracts and rollout](docs/migration.md) and [Cloud Run deployment](docs/deployment.md). No production deployment, rule change, data rewrite, or replacement of the existing notification sender is performed by this repository's tests.
