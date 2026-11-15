@@ -36,6 +36,9 @@ class PlayersController {
   constructor(
     @Inject(PlayersRepository) private readonly players: PlayersRepository,
   ) {}
+  @Get('me/activity') activity(@CurrentUid() uid: string) {
+    return this.players.activity(uid);
+  }
   @Get('me') me(@CurrentUid() uid: string) {
     return this.players.get(uid, true);
   }

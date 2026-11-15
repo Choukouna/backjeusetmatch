@@ -1,6 +1,6 @@
 # JeuSetFun backend
 
-NestJS 12 REST API for the French Flutter tennis/padel application. This repository owns application rules and Firebase Admin access. The Flutter repository remains unchanged; its feature-by-feature API integration is the next migration stage.
+NestJS 12 REST API for the French Flutter tennis/padel application. This repository owns application rules and Firebase Admin access. The separate Flutter repository now integrates this API for all data access, retaining Firebase SDK session management and FCM receipt.
 
 ## Run locally
 
@@ -33,22 +33,22 @@ npm run test:emulators
 
 ## APIs
 
-All routes below use `/api/jeusetfun/v1`. Bearer Firebase ID tokens are required except login, signup, reset, communes, and health. Public player DTOs exclude emails, real names, and FCM tokens.
+All routes below use `/api/jeusetfun/v1`. Bearer Firebase ID tokens are required except login, signup, reset, communes, and health. Public player DTOs expose an abbreviated `displayName` and exclude full names, emails, and FCM tokens.
 
-| Domain         | Routes                                                                                                                                                             |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Authentication | `POST /auth/login`, `/auth/signup`, `/auth/complete-profile`, `/auth/password-reset`; `DELETE /auth/account`                                                       |
-| Players        | `GET /players`, `/players/me`, `/players/:id`, `/players/by-pseudo/:pseudo`; `PATCH /players/me`; `POST /players/me/opened`; `PUT/DELETE /players/me/device-token` |
-| Communes       | `GET /communes?q=ren&departmentCode=35`                                                                                                                            |
-| Matches        | `GET/POST /matches`; `PUT /matches/:id/score` for scheduled league matches                                                                                         |
-| Availability   | `GET/POST /slots`; `POST /slots/:id/request`; `PUT /slots/:id/response`; `DELETE /slots/:id`                                                                       |
-| Friendships    | `GET /friendships`; `POST/DELETE /friendships/:playerId`; `PUT /friendships/:playerId/accept`                                                                      |
-| Chat           | `GET /chats`; `POST /chats/direct`; `GET/POST /chats/:id/messages`; `PUT /chats/:id/read`; `DELETE /chats/:id` (P2P)                                               |
-| Live events    | `GET /chats/events`, `/chats/:id/events` with `Accept: text/event-stream` and bearer header                                                                        |
-| Groups         | `GET/POST /groups`; `GET/DELETE /groups/:id`; `PUT /groups/:id/members`; `POST /groups/:id/leave`                                                                  |
-| Tennis leagues | `GET/POST /leagues`; `GET /leagues/:id`, `/rounds`, `/matches`, `/standings`; `POST/DELETE /leagues/:id/enrollment`; `POST /leagues/:id/close`                     |
-| Feedback       | `POST /feedback`                                                                                                                                                   |
-| Health         | `GET /health/live`, `/health/ready`                                                                                                                                |
+| Domain         | Routes                                                                                                                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authentication | `POST /auth/login`, `/auth/signup`, `/auth/complete-profile`, `/auth/password-reset`; `DELETE /auth/account`                                                                                   |
+| Players        | `GET /players`, `/players/me`, `/players/:id`, `/players/by-pseudo/:pseudo`; `PATCH /players/me`; `GET /players/me/activity`; `POST /players/me/opened`; `PUT/DELETE /players/me/device-token` |
+| Communes       | `GET /communes?q=ren&departmentCode=35`                                                                                                                                                        |
+| Matches        | `GET/POST /matches`; `PUT /matches/:id/score` for scheduled league matches                                                                                                                     |
+| Availability   | `GET/POST /slots`; `POST /slots/:id/request`; `PUT /slots/:id/response`; `DELETE /slots/:id`                                                                                                   |
+| Friendships    | `GET /friendships`; `POST/DELETE /friendships/:playerId`; `PUT /friendships/:playerId/accept`                                                                                                  |
+| Chat           | `GET /chats`; `POST /chats/direct`; `GET/POST /chats/:id/messages`; `PUT /chats/:id/read`; `DELETE /chats/:id` (P2P)                                                                           |
+| Live events    | `GET /chats/events`, `/chats/:id/events` with `Accept: text/event-stream` and bearer header                                                                                                    |
+| Groups         | `GET/POST /groups`; `GET/DELETE /groups/:id`; `PUT /groups/:id/members`; `POST /groups/:id/leave`                                                                                              |
+| Tennis leagues | `GET/POST /leagues`; `GET /leagues/:id`, `/rounds`, `/matches`, `/standings`; `POST/DELETE /leagues/:id/enrollment`; `POST /leagues/:id/close`                                                 |
+| Feedback       | `POST /feedback`                                                                                                                                                                               |
+| Health         | `GET /health/live`, `/health/ready`                                                                                                                                                            |
 
 Availability accepts an optional `day=YYYY-MM-DD` within today through day +14 (Europe/Paris); otherwise it returns that whole window. League matches accept `roundNumber`; standings accept `upToRoundNumber`. Use Swagger for request schemas. All fixed UI text stays in Flutter's French `Constante`; the API returns machine-readable `{code,statusCode,requestId}` errors. Request IDs also appear in `x-request-id`. Dates are ISO 8601 strings. Most lists return `{items,nextCursor}` with `limit` (1–100) and an opaque `cursor`; cursors belong to their original query. Chat messages sort newest first, calendars by start time, and commune search by normalized name; other lists sort by document ID. Clients must sort presentation rows and continue while `nextCursor` exists, even if compatibility filtering yields an empty page.
 

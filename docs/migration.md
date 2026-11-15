@@ -48,3 +48,7 @@ The initial backend limits new groups to 30 members and newly generated round-ro
 Unit tests cover ranks/NC, score orientation/ambiguity, Paris/DST slot boundaries, padel capacity, round-robin pair uniqueness/byes, standings, and a ciphertext fixture generated with the current Flutter Dart encryption dependency. HTTP tests cover public/protected boundaries and schema validation. Emulator integration tests cover signup recovery, private-field projection, scoped cursors, concurrent pseudo/match/slot/enrollment races, notification payloads, legacy chat data, live membership removal, and league score normalization.
 
 Production deployment, Flutter UI tests, real notification delivery, and real multi-instance Cloud Run behavior require the configured test environment and frontend integration; emulator results do not substitute for those checks.
+
+## Frontend integration contract additions
+
+Player responses include `displayName` (first name and surname initial); full names remain self-only. Self profiles include `lastScreenTime` for existing unread behavior. `GET /players/me/activity` returns boolean `pendingSlotRequests`, `slotResponses`, and `newSlots`, computed from authenticated identity and its stored last-screen time. Optional first names remain accepted at registration.

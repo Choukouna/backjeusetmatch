@@ -25,7 +25,7 @@ export const registrationSchema = profileSchema
       .regex(/^[\p{L}\p{N}_-]+$/u)
       .transform((v) => v.toLowerCase()),
     name: z.string().trim().min(1).max(100),
-    lastname: z.string().trim().min(1).max(100),
+    lastname: z.string().trim().max(100),
   })
   .strict();
 export const loginSchema = z

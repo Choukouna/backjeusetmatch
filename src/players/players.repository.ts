@@ -30,12 +30,26 @@ const privateFields = [
   'notificationFrequency',
   'createdAt',
   'updatedAt',
+  'lastScreenTime',
 ] as const;
+export function displayName(data: Record<string, unknown>) {
+  const surname = (typeof data.name === 'string' ? data.name : '').trim();
+  const first = (typeof data.lastname === 'string' ? data.lastname : '').trim();
+  const capitalize = (value: string) =>
+    value ? value[0].toUpperCase() + value.slice(1) : '';
+  return first
+    ? `${capitalize(first)}${surname ? ` ${Array.from(surname)[0].toUpperCase()}.` : ''}`
+    : capitalize(surname) || 'Joueur';
+}
 export const playerDto = (
   data: Record<string, unknown>,
   id: string,
   own = false,
-) => ({ id, ...fields(data, own ? privateFields : publicFields) });
+) => ({
+  id,
+  displayName: displayName(data),
+  ...fields(data, own ? privateFields : publicFields),
+});
 @Injectable()
 export class PlayersRepository {
   constructor(
@@ -72,6 +86,40 @@ export class PlayersRepository {
       .get();
     if (result.size !== 1) throw new NotFoundException();
     return playerDto(result.docs[0].data(), result.docs[0].id);
+  }
+  async activity(uid: string) {
+    const db = this.firebase.db;
+    const own = requireDocument(await db.collection('players').doc(uid).get());
+    const since = own.lastScreenTime?.toDate?.() as Date | undefined;
+    const [owned, responses, slots] = await Promise.all([
+      db.collection('players_slot').where('ownerUid', '==', uid).get(),
+      db.collection('players_slot').where('opponentUid', '==', uid).get(),
+      since && own.deptCode
+        ? db
+            .collection('players_slot')
+            .where('deptCode', '==', own.deptCode)
+            .get()
+        : Promise.resolve(undefined),
+    ]);
+    const newer = (value: unknown) =>
+      value &&
+      typeof (value as any).toDate === 'function' &&
+      (!since || (value as any).toDate() > since);
+    return {
+      pendingSlotRequests: owned.docs.some(
+        (d) => d.get('status') === 'PENDING',
+      ),
+      slotResponses: responses.docs.some(
+        (d) =>
+          ['AVAILABLE', 'ACCEPTED'].includes(d.get('status')) &&
+          (!since || newer(d.get('updatedAt'))),
+      ),
+      newSlots:
+        !!since &&
+        !!slots?.docs.some(
+          (d) => d.get('ownerUid') !== uid && newer(d.get('createdAt')),
+        ),
+    };
   }
   async touch(uid: string) {
     const ref = this.firebase.db.collection('players').doc(uid);

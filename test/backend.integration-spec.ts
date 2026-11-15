@@ -110,12 +110,53 @@ describe('Firebase-backed API', () => {
         .delete(`/api/jeusetfun/v1${path}`)
         .auth(accounts.get(uid)!, { type: 'bearer' }),
   });
+  it('returns an authenticated activity summary and private last-screen time', async () => {
+    const now = new Date();
+    const since = Timestamp.fromDate(new Date(now.getTime() - 60000));
+    await firebase.db
+      .collection('players')
+      .doc('alice')
+      .update({ lastScreenTime: since });
+    await firebase.db
+      .collection('players_slot')
+      .doc('activity-owned')
+      .set({ ownerUid: 'alice', status: 'PENDING' });
+    await firebase.db
+      .collection('players_slot')
+      .doc('activity-response')
+      .set({
+        ownerUid: 'bob',
+        opponentUid: 'alice',
+        status: 'ACCEPTED',
+        updatedAt: Timestamp.fromDate(now),
+      });
+    await firebase.db
+      .collection('players_slot')
+      .doc('activity-new')
+      .set({
+        ownerUid: 'bob',
+        deptCode: '35',
+        createdAt: Timestamp.fromDate(now),
+      });
+    const result = await api('alice').get('/players/me/activity').expect(200);
+    expect(result.body).toEqual({
+      pendingSlotRequests: true,
+      slotResponses: true,
+      newSlots: true,
+    });
+    const own = await api('alice').get('/players/me').expect(200);
+    expect(own.body.lastScreenTime).toBe(since.toDate().toISOString());
+    const other = await api('bob').get('/players/alice').expect(200);
+    expect(other.body).not.toHaveProperty('lastScreenTime');
+  });
   it('returns safe player DTOs and scoped pagination', async () => {
     const result = await api('alice').get('/players/bob').expect(200);
     expect(result.body).toHaveProperty('pseudo', 'bob01');
     expect(result.body).not.toHaveProperty('email');
     expect(result.body).not.toHaveProperty('fcmToken');
     expect(result.body).not.toHaveProperty('lastname');
+    expect(result.body).not.toHaveProperty('name');
+    expect(result.body).toHaveProperty('displayName', 'Test A.');
     const own = await api('alice').get('/players/me').expect(200);
     expect(own.body.email).toBe('alice@example.test');
     const first = await api('alice')

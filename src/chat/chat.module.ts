@@ -1,3 +1,4 @@
+import { displayName } from '../players/players.repository.js';
 import { Inject } from '@nestjs/common';
 import {
   Controller,
@@ -166,8 +167,8 @@ export class ChatService {
         type: 'P2P',
         participantsUid: [uid, other].sort(),
         participants: [
-          { uid, name: own.pseudo },
-          { uid: other, name: player.pseudo },
+          { uid, name: displayName(own) },
+          { uid: other, name: displayName(player) },
         ],
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
@@ -206,7 +207,7 @@ export class ChatService {
       tx.create(message, {
         content: encrypted,
         senderId: uid,
-        senderName: own.pseudo,
+        senderName: displayName(own),
         createdAt: FieldValue.serverTimestamp(),
       });
       tx.update(ref, {
@@ -218,7 +219,7 @@ export class ChatService {
       this.notifications.enqueue(
         tx,
         recipients.filter((r) => r.exists).map((r) => r.data()!),
-        String(own.pseudo),
+        displayName(own),
         body.content,
       );
       finishOperation(tx, db, uid, body.operationId, action, message.id);

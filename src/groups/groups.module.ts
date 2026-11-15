@@ -1,3 +1,4 @@
+import { displayName } from '../players/players.repository.js';
 import { Inject } from '@nestjs/common';
 import {
   Controller,
@@ -155,7 +156,7 @@ export class GroupsService {
         : [];
       const participants = players.map((p) => ({
         uid: p.id,
-        name: requireDocument(p).pseudo,
+        name: displayName(requireDocument(p)),
       }));
       if (existing.length + newIds.length > 30)
         throw new ConflictException({ code: 'GROUP_FULL' });

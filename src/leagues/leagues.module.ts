@@ -1,3 +1,4 @@
+import { displayName } from '../players/players.repository.js';
 import { Inject } from '@nestjs/common';
 import {
   Controller,
@@ -281,7 +282,7 @@ export class LeaguesService {
       );
       const participants = players.map((p) => ({
         uid: p.id,
-        name: requireDocument(p).pseudo,
+        name: displayName(requireDocument(p)),
       }));
       const schedule = this.schedule(tx, ref.id, body.groupId, ids);
       tx.create(ref, {
@@ -331,7 +332,7 @@ export class LeaguesService {
       const participants = (league.participants ?? []).filter(
         (p: { uid: string }) => p.uid !== uid,
       );
-      if (join) participants.push({ uid, name: own.pseudo });
+      if (join) participants.push({ uid, name: displayName(own) });
       const full = join && required > 0 && ids.length === required;
       const recipients = full
         ? await tx.getAll(...ids.map((p) => db.collection('players').doc(p)))

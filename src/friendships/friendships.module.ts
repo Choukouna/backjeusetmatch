@@ -1,3 +1,4 @@
+import { displayName } from '../players/players.repository.js';
 import { Inject } from '@nestjs/common';
 import {
   Controller,
@@ -89,9 +90,9 @@ export class FriendshipsService {
         if (existing.exists) return;
         tx.create(ref, {
           fromUid: uid,
-          fromName: own.pseudo,
+          fromName: displayName(own),
           toUid: otherUid,
-          toName: other.pseudo,
+          toName: displayName(other),
           status: 'PENDING',
           updatedAt: FieldValue.serverTimestamp(),
         });
