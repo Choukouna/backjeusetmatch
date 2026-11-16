@@ -28,12 +28,12 @@ Production rollout needs real project configuration, credentials, deployed-index
 pushes to `main`: Node 24 dependency installation, lint, typecheck, unit tests,
 HTTP end-to-end tests, and a `linux/amd64` Docker build. Emulator integration tests
 remain a separate check. Pull requests never authenticate to Google Cloud or push
-images. Pushes to `main`, and manual runs selecting `main`, publish after checks
-pass. Manual runs on other branches only validate.
+images. Pushes to `main`, and manual runs selecting any repository branch, publish
+after checks pass. Working-branch pushes do not publish automatically.
 
 Images are tagged with the full Git commit SHA, without a mutable `latest` tag:
 `REGION-docker.pkg.dev/PROJECT_ID/jeusetfun/backend:COMMIT_SHA`. The workflow summary
-includes the image URI, digest, and digest-based reference for a later deployment.
+includes the source branch, image URI, digest, and digest-based reference for a later deployment.
 Re-running a commit can rebuild its image (the base image tag can change); use the
 recorded digest when promoting an exact artifact. This workflow does not deploy
 to Cloud Run or change Firebase resources.
@@ -94,7 +94,7 @@ gcloud iam workload-identity-pools providers create-oidc "$WIF_PROVIDER" \
   --workload-identity-pool="$WIF_POOL" \
   --issuer-uri='https://token.actions.githubusercontent.com' \
   --attribute-mapping='google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.repository_owner_id=assertion.repository_owner_id,attribute.ref=assertion.ref' \
-  --attribute-condition="assertion.repository_owner_id == '${GITHUB_OWNER_ID}' && assertion.repository_id == '${GITHUB_REPOSITORY_ID}' && assertion.ref == 'refs/heads/main' && (assertion.event_name == 'push' || assertion.event_name == 'workflow_dispatch')"
+  --attribute-condition="assertion.repository_owner_id == '${GITHUB_OWNER_ID}' && assertion.repository_id == '${GITHUB_REPOSITORY_ID}' && ((assertion.event_name == 'push' && assertion.ref == 'refs/heads/main') || (assertion.event_name == 'workflow_dispatch' && assertion.ref.startsWith('refs/heads/')))"
 
 gcloud iam service-accounts add-iam-policy-binding "$GCP_SERVICE_ACCOUNT" \
   --project="$GCP_PROJECT_ID" \
@@ -116,13 +116,41 @@ uses short-lived GitHub OIDC credentials through Workload Identity Federation;
 no service-account key is created. The publisher can write only to this Artifact
 Registry repository and is separate from the eventual Cloud Run runtime identity.
 The provider uses numeric GitHub owner/repository IDs to avoid trusting a reused
-repository name, and permits only main-branch push/manual events. See the
+repository name, and permits main-branch pushes and manual runs on repository
+branches. Users allowed to run workflows on those branches can publish images
+through this scoped identity. Pull-request and tag events remain excluded. See the
 [Google authentication action documentation](https://github.com/google-github-actions/auth)
 and [Artifact Registry access control](https://cloud.google.com/artifact-registry/docs/access-control).
 
 No Firebase settings or chat keys are needed to build the image. Credential-file
 generation is disabled, and `gha-creds-*.json` is excluded from Git and the Docker
 build context as a precaution.
+
+#### Update an existing identity provider
+
+If the provider was already created with the main-only condition, set the setup
+variables above (including the numeric GitHub owner/repository IDs), then update
+its condition without recreating the pool or service account:
+
+```bash
+gcloud iam workload-identity-pools providers update-oidc "$WIF_PROVIDER" \
+  --project="$GCP_PROJECT_ID" \
+  --location=global \
+  --workload-identity-pool="$WIF_POOL" \
+  --attribute-condition="assertion.repository_owner_id == '${GITHUB_OWNER_ID}' && assertion.repository_id == '${GITHUB_REPOSITORY_ID}' && ((assertion.event_name == 'push' && assertion.ref == 'refs/heads/main') || (assertion.event_name == 'workflow_dispatch' && assertion.ref.startsWith('refs/heads/')))"
+```
+
+Changing the workflow alone is insufficient: the old Google Cloud condition
+rejects authentication from working branches.
+
+### Publish a working-branch image
+
+1. Ensure this workflow exists on the repository's default branch so GitHub shows
+   its manual trigger. The working branch must also contain the updated workflow.
+2. Push your working branch, then open **Actions → Build and push backend image →
+   Run workflow**, select that branch, and run it.
+3. After validation and publishing succeed, copy the SHA-tagged image or digest
+   reference from the workflow summary for testing. This does not deploy it.
 
 ### Verify the first publication
 
@@ -143,6 +171,9 @@ build context as a precaution.
 
    Replace `COMMIT_SHA` with the published commit and compare the returned digest
    with the workflow summary.
-4. Run manually on a non-main branch after the workflow exists there; confirm
-   validation runs and publishing is skipped. Review that no credential files or
-   application secrets appear in the repository, build inputs, or logs.
+4. Run manually on a working branch containing the updated workflow; confirm
+   validation succeeds and the published image tag matches that branch commit.
+   Confirm the summary names the branch and its digest matches Artifact Registry.
+5. Confirm pull requests, ordinary working-branch pushes, and tags cannot publish.
+   Review that no credential files or application secrets appear in the
+   repository, build inputs, or logs.
