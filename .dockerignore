@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.idea
+.env
+.env.*
+coverage
+*.log
+firepit-log.txt
+test
+docs
+gha-creds-*.json
