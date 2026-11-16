@@ -9,3 +9,4 @@ coverage
 firepit-log.txt
 test
 docs
+gha-creds-*.json
